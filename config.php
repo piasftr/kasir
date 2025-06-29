@@ -9,5 +9,5 @@ if (!$conn){
         die("Connection Failed:".mysqli_connect_error());
     }
     
-date_default_timezone_set('Asia/Jakarta');   
+date_default_timezone_set('Asia/Makassar');   
 ?>

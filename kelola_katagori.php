@@ -162,18 +162,28 @@ $kategori_query = mysqli_query($conn, "SELECT * FROM kategori_pengeluaran ORDER 
             
             $total_all = mysqli_query($conn, "SELECT SUM(jumlah) as grand_total FROM pengeluaran");
             $grand_total = mysqli_fetch_assoc($total_all)['grand_total'] ?? 1;
+
             ?>
             
             <div class="row">
                 <?php while($stat = mysqli_fetch_assoc($stats_query)): 
                     $persentase = ($stat['total_pengeluaran'] / $grand_total) * 100;
+
+                $nama_kategori_query = mysqli_query($conn, "SELECT nama_kategori FROM kategori_pengeluaran WHERE id_kategori = '" . $stat['id_kategori'] . "'");
+                // Pastikan ada hasil sebelum mencoba mengambilnya
+                if ($nama_kategori_query && mysqli_num_rows($nama_kategori_query) > 0) {
+                    $nama_kategori_row = mysqli_fetch_assoc($nama_kategori_query);
+                    $nama_kategori = $nama_kategori_row['nama_kategori'];
+                } else {
+                    $nama_kategori = "Kategori Tidak Ditemukan"; // Atau nilai default lainnya
+                }
                 ?>
                 <div class="col-md-6 mb-3">
                     <div class="card">
                         <div class="card-body">
                             <div class="d-flex justify-content-between">
                                 <div>
-                                    <h6><?= $stat['id_kategori'] ?></h6>
+                                    <h6><?= $nama_kategori?></h6>
                                     <small class="text-muted"><?= $stat['jumlah_transaksi'] ?> transaksi</small>
                                 </div>
                                 <div class="text-end">

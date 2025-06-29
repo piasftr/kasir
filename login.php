@@ -17,21 +17,16 @@ if (isset($_POST['proses'])) {
     if ($data) {
         // Jika password disimpan dalam bentuk plain text
         if ($pass === $data['pass']) {
+            $_SESSION['id_login'] = $data['id_login'];
             $_SESSION['user'] = $user;
+            $_SESSION['role'] = $data['role']; // <<< TAMBAHKAN INI
+            $_SESSION['nama_toko'] = $data['nama_toko']; // nama toko
             $_SESSION['status'] = "login";
             echo '<script>alert("Login Sukses"); window.location="index.php";</script>';
         } else {
             echo '<script>alert("Password salah!"); history.back();</script>';
         }
 
-        // Jika password disimpan sebagai hash (rekomendasi keamanan)
-        // if (password_verify($pass, $data['pass'])) {
-        //     $_SESSION['user'] = $user;
-        //     $_SESSION['status'] = "login";
-        //     echo '<script>alert("Login Sukses"); window.location="index.php";</script>';
-        // } else {
-        //     echo '<script>alert("Password salah!"); history.back();</script>';
-        // }
     } else {
         echo '<script>alert("Username tidak ditemukan!"); history.back();</script>';
     }

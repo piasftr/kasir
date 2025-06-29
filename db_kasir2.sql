@@ -240,14 +240,13 @@ COMMIT;
 
 
 -- --------------------------------------------------------
--- Tabel untuk kategori pengeluaran
-CREATE TABLE `kategori_pengeluaran` (
+CREATE TABLE IF NOT EXISTS `kategori_pengeluaran` (
   `id_kategori` INT NOT NULL AUTO_INCREMENT,
   `nama_kategori` VARCHAR(100) NOT NULL,
   `deskripsi` TEXT,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id_kategori`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 -- Tabel untuk mencatat pengeluaran
@@ -276,6 +275,22 @@ INSERT INTO kategori_pengeluaran (nama_kategori, deskripsi) VALUES
 ('Lain-lain', 'Pengeluaran lainnya');
 
 -- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `pengeluaran` (
+  `id_pengeluaran` INT NOT NULL AUTO_INCREMENT,
+  `id_kategori` INT NULL,
+  `deskripsi` TEXT NOT NULL,
+  `jumlah` DECIMAL(10,2) NOT NULL,
+  `tanggal` DATE NOT NULL,
+  `waktu` TIME NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id_pengeluaran`),
+  CONSTRAINT `fk_pengeluaran_kategori`
+    FOREIGN KEY (`id_kategori`)
+    REFERENCES `kategori_pengeluaran`(`id_kategori`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Insert contoh data pengeluaran
 INSERT INTO `pengeluaran` (`id_kategori`, `deskripsi`, `jumlah`, `tanggal`, `waktu`) VALUES
 (1, 'Beli beras 25kg', 150000, '2024-01-15', '08:30:00'),
@@ -283,3 +298,4 @@ INSERT INTO `pengeluaran` (`id_kategori`, `deskripsi`, `jumlah`, `tanggal`, `wak
 (4, 'Isi ulang gas 12kg', 25000, '2024-01-16', '10:00:00'),
 (2, 'Gaji karyawan mingguan', 500000, '2024-01-20', '17:00:00'),
 (3, 'Bayar tagihan listrik', 120000, '2024-01-25', '14:30:00');
+-- --------------------------------------------------------

@@ -6,66 +6,64 @@ function format_ribuan($angka) {
     return number_format($angka, 0, ',', '.');
 }
 
-// SIMPAN PENGELUARAN
-//if (isset($_POST['simpan_pengeluaran'])) {
-   // $id_kategori = $_POST['id_kategori'];
-   // $deskripsi = $_POST['deskripsi'];
-  //  $jumlah = $_POST['jumlah'];
-  //  $tanggal = $_POST['tanggal'];
-   // $waktu = date('H:i:s');
-
-    // Insert dengan id_kategori yang valid
-  //  mysqli_query($conn, "
-  //      INSERT INTO pengeluaran (id_kategori, deskripsi, jumlah, tanggal, waktu)
-   //     VALUES ('$id_kategori', '$deskripsi', '$jumlah', '$tanggal', '$waktu')
-   // ");
-
-  //  if ($query) {
-   //     echo "<script>alert('Pengeluaran berhasil disimpan!'); window.location='input_pengeluaran.php';</script>";
-   // } else {
-   //     echo "<script>alert('Gagal disimpan: " . mysqli_error($koneksi) . "');</script>";
-   // }
-//} yg atas yg awal atau aslinya input pengeluaran
-
 if (isset($_POST['simpan_pengeluaran'])) {
-  $id_kategori = $_POST['id_kategori'] ?? null;
-  $deskripsi = $_POST['deskripsi'] ?? '';
-  $jumlah = $_POST['jumlah'] ?? 0;
-  $tanggal = $_POST['tanggal'] ?? date('Y-m-d');
-  $waktu = $_POST['waktu'] ?? date('H:i:s');
+    $id_kategori = $_POST['id_kategori'] ?? null;
+    $deskripsi = $_POST['deskripsi'] ?? '';
+    $jumlah = $_POST['jumlah'] ?? 0; // Ini masih string "40.000"
+    $tanggal = $_POST['tanggal'] ?? date('Y-m-d');
+    $waktu = $_POST['waktu'] ?? date('H:i:s');
 
+    // --- MULAI PERBAIKAN JUMLAH ---
+    // 1. Hapus titik sebagai pemisah ribuan
+    $jumlah_cleaned = str_replace('.', '', $jumlah);
 
+    // 2. Konversi string yang sudah bersih menjadi integer
+    //    Gunakan (float) jika jumlah bisa memiliki desimal (misal: 40.500)
+    //    Gunakan (int) jika jumlah selalu bilangan bulat (misal: 40000)
+    $jumlah_for_db = (int)$jumlah_cleaned;
+    // --- AKHIR PERBAIKAN JUMLAH ---
 
-// validasi FK
-  if (empty($id_kategori)) {
-    echo "<script>alert('Pilih kategori dulu!'); window.history.back();</script>";
-    exit;
-  }
- //mysqli_query($conn, "
-    //INSERT INTO pengeluaran (id_kategori, deskripsi, jumlah, tanggal, waktu)
-    //VALUES ('$id_kategori', '$deskripsi', '$jumlah', '$tanggal', '$waktu')
-  //");
+    // validasi FK
+    if (empty($id_kategori)) {
+        echo "<script>alert('Pilih kategori dulu!'); window.history.back();</script>";
+        exit;
+    }
 
-  $query = mysqli_query($conn, "
-    INSERT INTO pengeluaran (id_kategori, deskripsi, jumlah, tanggal, waktu)
-    VALUES ('$id_kategori', '$deskripsi', '$jumlah', '$tanggal', '$waktu')
-  ");
+    // --- PERHATIAN PENTING: SANGAT DISARANKAN MENGGUNAKAN PREPARED STATEMENTS UNTUK KEAMANAN ---
+    // Kode di bawah ini masih rentan terhadap SQL Injection.
+    // Jika Anda ingin metode yang lebih aman (sangat direkomendasikan):
+    /*
+    $stmt = mysqli_prepare($conn, "
+        INSERT INTO pengeluaran (id_kategori, deskripsi, jumlah, tanggal, waktu)
+        VALUES (?, ?, ?, ?, ?)
+    ");
+    mysqli_stmt_bind_param($stmt, "ssiss", $id_kategori, $deskripsi, $jumlah_for_db, $tanggal, $waktu);
+    
+    if (mysqli_stmt_execute($stmt)) {
+        echo '<script>alert("Pengeluaran berhasil disimpan!"); window.location="input_pengeluaran.php";</script>';
+    } else {
+        echo "Error: " . mysqli_error($conn); // Hanya untuk debugging, hapus di production
+        echo "<script>alert('Gagal menyimpan pengeluaran!'); window.history.back();</script>";
+    }
+    mysqli_stmt_close($stmt);
+    */
 
-if ($query) {
-    echo "<script>alert('Pengeluaran berhasil disimpan!'); window.location='input_pengeluaran.php';</script>";
-  } else {
-    echo "<script>alert('Gagal: " . mysqli_error($koneksi) . "');</script>";
-  }
+    // --- KODE SAAT INI (kurang aman, tapi disesuaikan dengan permintaan Anda) ---
+    $query = mysqli_query($conn, "
+        INSERT INTO pengeluaran (id_kategori, deskripsi, jumlah, tanggal, waktu)
+        VALUES ('$id_kategori', '$deskripsi', '$jumlah_for_db', '$tanggal', '$waktu')
+    ");
+
+    if (!$query) {
+        // Tampilkan error database untuk debugging. Hapus atau log ini di lingkungan produksi.
+        echo "Error saat menyimpan: " . mysqli_error($conn);
+        echo "<script>alert('Gagal menyimpan pengeluaran!'); window.history.back();</script>";
+        exit;
+    } else {
+        echo '<script>alert("Pengeluaran berhasil disimpan!"); window.location="input_pengeluaran.php";</script>';
+    }
 }
 
-
-
-  //if ($query) {
-    //echo "<script>alert('Pengeluaran berhasil disimpan!'); window.location='input_pengeluaran.php';</script>";
-  //} else {
-    //echo "<script>alert('Gagal: " . mysqli_error($koneksi) . "');</script>";
-  //}
-//}
 
 // HAPUS PENGELUARAN
 if (isset($_GET['hapus'])) {
@@ -78,17 +76,32 @@ if (isset($_GET['hapus'])) {
 }
 
 // Ambil data kategori
+// PENTING: Pastikan kolom yang dipilih di sini cocok dengan value option di form input pengeluaran.
+// Jika id_kategori di tabel pengeluaran menyimpan ID (int), maka select option harus value=id.
+// Jika id_kategori di tabel pengeluaran menyimpan NAMA (varchar), maka select option harus value=nama.
+// Berdasarkan diskusi sebelumnya, sebaiknya Anda menggunakan ID kategori.
 $kategori_query = mysqli_query($conn, "SELECT * FROM kategori_pengeluaran ORDER BY nama_kategori ASC");
 
-// Ambil data pengeluaran hari ini
+// Ambil data pengeluaran hari ini (sudah diperbaiki di diskusi sebelumnya)
 $today = date('Y-m-d');
-$pengeluaran_today = mysqli_query($conn, "SELECT * FROM pengeluaran WHERE tanggal='$today' ORDER BY waktu DESC");
+$pengeluaran_today = mysqli_query($conn, "
+    SELECT 
+        p.*, 
+        kp.nama_kategori AS nama_kategori_display 
+    FROM 
+        pengeluaran p
+    JOIN 
+        kategori_pengeluaran kp ON p.id_kategori = kp.id_kategori
+    WHERE 
+        p.tanggal='$today' 
+    ORDER BY 
+        p.waktu DESC
+");
 ?>
 
 <div class="col-md-9 mb-2">
     <div class="row">
         
-        <!-- FORM INPUT PENGELUARAN -->
         <div class="col-md-6 mb-3">
             <div class="card">
                 <div class="card-header">
@@ -100,8 +113,12 @@ $pengeluaran_today = mysqli_query($conn, "SELECT * FROM pengeluaran WHERE tangga
                             <label class="form-label">Kategori Pengeluaran</label>
                             <select name="id_kategori" class="form-control" required>
                                 <option value="">Pilih Kategori</option>
-                                <?php while($kat = mysqli_fetch_assoc($kategori_query)): ?>
-                                <option value="<?= $kat['nama_kategori'] ?>"><?= $kat['nama_kategori'] ?></option>
+                                <?php 
+                                // Reset pointer kategori_query jika sudah pernah dipakai sebelum loop ini
+                                mysqli_data_seek($kategori_query, 0); 
+                                while($kat = mysqli_fetch_assoc($kategori_query)): 
+                                ?>
+                                <option value="<?= $kat['id_kategori'] ?>"><?= $kat['nama_kategori'] ?></option>
                                 <?php endwhile; ?>
                             </select>
                         </div>
@@ -129,7 +146,6 @@ $pengeluaran_today = mysqli_query($conn, "SELECT * FROM pengeluaran WHERE tangga
             </div>
         </div>
         
-        <!-- PENGELUARAN HARI INI -->
         <div class="col-md-6 mb-3">
             <div class="card">
                 <div class="card-header">
@@ -146,7 +162,7 @@ $pengeluaran_today = mysqli_query($conn, "SELECT * FROM pengeluaran WHERE tangga
                         <div class="card-body p-2">
                             <div class="d-flex justify-content-between align-items-start">
                                 <div>
-                                    <small class="text-muted"><?= $row['kategori_pengeluaran'] ?></small>
+                                    <small class="text-muted"><?= $row['nama_kategori_display'] ?></small>
                                     <p class="mb-1"><?= $row['deskripsi'] ?></p>
                                     <small class="text-muted"><?= date('H:i', strtotime($row['waktu'])) ?></small>
                                 </div>
@@ -177,20 +193,14 @@ $pengeluaran_today = mysqli_query($conn, "SELECT * FROM pengeluaran WHERE tangga
         
     </div>
     
-    <!-- QUICK ACCESS BUTTONS -->
     <div class="row">
         <div class="col-12">
             <div class="card">
                 <div class="card-body">
-                    <div class="row">
+                    <div class="row justify-items-between justify-content-between" >
                         <div class="col-md-3 mb-2">
-                            <a href="laporan_pengeluaran.php" class="btn btn-info w-100">
-                                <i class="fa fa-chart-line"></i> Laporan Pengeluaran
-                            </a>
-                        </div>
-                        <div class="col-md-3 mb-2">
-                            <a href="analisis_keuangan.php" class="btn btn-success w-100">
-                                <i class="fa fa-analytics"></i> Analisis Keuangan
+                            <a href="laporan_keuangan.php" class="btn btn-info w-100">
+                                <i class="fa fa-chart-line"></i> Laporan
                             </a>
                         </div>
                         <div class="col-md-3 mb-2">
@@ -199,7 +209,7 @@ $pengeluaran_today = mysqli_query($conn, "SELECT * FROM pengeluaran WHERE tangga
                             </a>
                         </div>
                         <div class="col-md-3 mb-2">
-                            <a href="kelola_kategori.php" class="btn btn-secondary w-100">
+                            <a href="kelola_katagori.php" class="btn btn-secondary w-100">
                                 <i class="fa fa-cog"></i> Kelola Kategori
                             </a>
                         </div>

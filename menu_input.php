@@ -9,19 +9,11 @@
             <h5><b>Tambah Menu Makanan</b></h5>
             <form method="POST">
                 <div class="row">
-                    <div class="col-md-6 mb-2">
+                    <div class="col-md-8 mb-2">
                         <input type="text" name="nama_makanan" class="form-control" placeholder="Nama Makanan" required>
                     </div>
-                    <div class="col-md-3 mb-2">
+                    <div class="col-md-4 mb-2">
                         <input type="number" name="harga_makanan" class="form-control" placeholder="Harga" required>
-                    </div>
-                    <div class="col-md-3 mb-2">
-                        <select name="kategori_lauk" class="form-control">
-                            <option value="">Tanpa Lauk</option>
-                            <option value="Telur">Telur</option>
-                            <option value="Ayam">Ayam</option>
-                            <option value="Ayam Geprek">Ayam Geprek</option>
-                        </select>
                     </div>
                     <div class="col-md-12 text-right">
                         <button type="submit" name="simpan_makanan" class="btn btn-primary">Simpan Makanan</button>
@@ -61,7 +53,6 @@
                         <tr>
                             <th>Nama</th>
                             <th>Harga</th>
-                            <th>Lauk</th>
                             <th>Aksi</th>
                         </tr>
                     </thead>
@@ -75,18 +66,6 @@
                                 <input type="hidden" name="jenis" value="makanan">
                                 <td><input type="text" name="nama" value="<?= $m['nama'] ?>" class="form-control"></td>
                                 <td><input type="number" name="harga" value="<?= $m['harga'] ?>" class="form-control">
-                                </td>
-                                <td>
-                                    <select name="kategori_lauk" class="form-control">
-                                        <option value="">Tanpa Lauk</option>
-                                        <option value="Telur" <?= $m['kategori_lauk']=='Telur' ? 'selected' : '' ?>>
-                                            Telur</option>
-                                        <option value="Ayam" <?= $m['kategori_lauk']=='Ayam' ? 'selected' : '' ?>>Ayam
-                                        </option>
-                                        <option value="Ayam Geprek"
-                                            <?= $m['kategori_lauk']=='Ayam Geprek' ? 'selected' : '' ?>>Ayam Geprek
-                                        </option>
-                                    </select>
                                 </td>
                                 <td class="text-center">
                                     <button type="submit" name="update" class="btn btn-success btn-sm">Simpan</button>
