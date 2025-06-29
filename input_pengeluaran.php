@@ -104,7 +104,7 @@ $pengeluaran_today = mysqli_query($conn, "
         
         <div class="col-md-6 mb-3">
             <div class="card">
-                <div class="card-header">
+                <div class="card-header bg-success text-light">
                     <h5><b>Input Pengeluaran</b></h5>
                 </div>
                 <div class="card-body">
@@ -138,7 +138,7 @@ $pengeluaran_today = mysqli_query($conn, "
                             <input type="date" name="tanggal" class="form-control" value="<?= date('Y-m-d') ?>" required>
                         </div>
                         
-                        <button type="submit" name="simpan_pengeluaran" class="btn btn-primary w-100">
+                        <button type="submit" name="simpan_pengeluaran" class="btn btn-success w-100">
                             <i class="fa fa-save"></i> Simpan Pengeluaran
                         </button>
                     </form>
@@ -148,7 +148,7 @@ $pengeluaran_today = mysqli_query($conn, "
         
         <div class="col-md-6 mb-3">
             <div class="card">
-                <div class="card-header">
+                <div class="card-header bg-success text-light">
                     <h5><b>Pengeluaran Hari Ini</b></h5>
                 </div>
                 <div class="card-body" style="max-height: 400px; overflow-y: auto;">
@@ -185,7 +185,7 @@ $pengeluaran_today = mysqli_query($conn, "
                     <p class="text-center text-muted">Belum ada pengeluaran hari ini</p>
                     <?php endif; ?>
                 </div>
-                <div class="card-footer">
+                <div class="card-footer bg-success text-light">
                     <strong>Total Hari Ini: Rp <?= format_ribuan($total_today) ?></strong>
                 </div>
             </div>

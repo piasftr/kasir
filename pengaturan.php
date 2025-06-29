@@ -95,6 +95,44 @@ if (isset($_GET['action']) && $_GET['action'] === 'make_owner' && isset($_GET['i
     exit();
 }
 
+// ==== Hapus Admin ====
+if (isset($_GET['action']) && $_GET['action'] === 'delete_admin' && isset($_GET['id'])) {
+    if ($user_role === 'owner') {
+        $target_id = $_GET['id'];
+        
+        // Pastikan tidak menghapus diri sendiri (owner yang sedang login)
+        if ($target_id == $_SESSION['id_login']) {
+            $_SESSION['message'] = ['type' => 'danger', 'text' => "❌ Anda tidak bisa menghapus akun Anda sendiri."];
+            header("Location: pengaturan.php");
+            exit();
+        }
+
+        // Cek apakah yang dihapus adalah admin
+        $cek = mysqli_query($conn, "SELECT role FROM login WHERE id_login = '$target_id'");
+        $cek_role = mysqli_fetch_assoc($cek)['role'];
+
+        if ($cek_role === 'admin') {
+            $stmt = mysqli_prepare($conn, "DELETE FROM login WHERE id_login = ? AND role = 'admin'");
+            mysqli_stmt_bind_param($stmt, "i", $target_id);
+
+            if (mysqli_stmt_execute($stmt)) {
+                $_SESSION['message'] = ['type' => 'success', 'text' => "✅ Admin berhasil dihapus."];
+            } else {
+                $_SESSION['message'] = ['type' => 'danger', 'text' => "❌ Gagal menghapus admin: " . mysqli_error($conn)];
+            }
+
+            mysqli_stmt_close($stmt);
+        } else {
+            $_SESSION['message'] = ['type' => 'warning', 'text' => "⚠️ Pengguna ini bukan admin, tidak dapat dihapus melalui fitur ini."];
+        }
+    } else {
+        $_SESSION['message'] = ['type' => 'danger', 'text' => "🚫 Akses ditolak!"];
+    }
+    header("Location: pengaturan.php");
+    exit();
+}
+
+
 // ==== Ambil data user untuk ditampilkan ====
 $result1 = mysqli_query($conn, "SELECT * FROM login WHERE user = '" . $_SESSION['user'] . "'");
 $current_user_data = mysqli_fetch_array($result1);
@@ -113,7 +151,6 @@ if ($user_role === 'owner') {
 }
 ?>
 
-<!-- ========== Tampilan dimulai setelah ini ========= -->
 <?php include 'template/header.php'; ?>
 <div class="col-md-9 mb-2">
     <div class="row">
@@ -137,7 +174,7 @@ if ($user_role === 'owner') {
         ?>
         <div class="col-md-7 mb-2">
             <div class="card">
-                <div class="card-header bg-purple">
+                <div class="card-header bg-danger">
                     <div class="card-tittle text-white"><i class="fa fa-cog"></i> <b>Pengaturan Akun</b></div>
                 </div>
                 <div class="card-body">
@@ -172,7 +209,7 @@ if ($user_role === 'owner') {
                                 </div>
                             </div>
                             <div class="text-right">
-                                <button class="btn btn-purple" name="get" type="submit">Update</button>
+                                <button class="btn btn-success" name="get" type="submit">Update</button>
                             </div>
                         </fieldset>
                     </form>
@@ -183,7 +220,7 @@ if ($user_role === 'owner') {
         <?php if ($user_role === 'owner'): ?>
         <div class="col-md-5 mb-2">
             <div class="card">
-                <div class="card-header bg-purple">
+                <div class="card-header bg-danger">
                     <div class="card-tittle text-white"><i class="fa fa-users"></i> <b>Manajemen Admin</b></div>
                 </div>
                 <div class="card-body">
@@ -195,9 +232,14 @@ if ($user_role === 'owner') {
                             <?php foreach ($list_admins as $admin): ?>
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
                                     <?php echo htmlspecialchars($admin['user']); ?>
-                                    <a href="pengaturan.php?action=make_owner&id=<?php echo $admin['id_login']; ?>" 
-                                       onclick="return confirm('Anda yakin ingin mengubah <?php echo htmlspecialchars($admin['user']); ?> menjadi Owner? Ini akan membatasi jumlah owner di toko Anda.');"
-                                       class="btn btn-sm btn-info">Jadikan Owner</a>
+                                    <span>
+                                        <a href="pengaturan.php?action=make_owner&id=<?php echo $admin['id_login']; ?>" 
+                                           onclick="return confirm('Anda yakin ingin mengubah <?php echo htmlspecialchars($admin['user']); ?> menjadi Owner? Ini akan membatasi jumlah owner di toko Anda.');"
+                                           class="btn btn-sm btn-info me-1">Jadikan Owner</a>
+                                        <a href="pengaturan.php?action=delete_admin&id=<?php echo $admin['id_login']; ?>" 
+                                           onclick="return confirm('Anda yakin ingin menghapus admin <?php echo htmlspecialchars($admin['user']); ?>?');"
+                                           class="btn btn-sm btn-danger">Hapus</a>
+                                    </span>
                                 </li>
                             <?php endforeach; ?>
                         </ul>

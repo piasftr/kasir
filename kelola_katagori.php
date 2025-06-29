@@ -55,7 +55,7 @@ $kategori_query = mysqli_query($conn, "SELECT * FROM kategori_pengeluaran ORDER 
         <!-- FORM TAMBAH KATEGORI -->
         <div class="col-md-4 mb-3">
             <div class="card">
-                <div class="card-header">
+                <div class="card-header bg-success text-light">
                     <h5><b>Tambah Kategori Baru</b></h5>
                 </div>
                 <div class="card-body">
@@ -70,7 +70,7 @@ $kategori_query = mysqli_query($conn, "SELECT * FROM kategori_pengeluaran ORDER 
                             <textarea name="deskripsi" class="form-control" rows="3" placeholder="Deskripsi kategori..."></textarea>
                         </div>
                         
-                        <button type="submit" name="tambah_kategori" class="btn btn-primary w-100">
+                        <button type="submit" name="tambah_kategori" class="btn btn-success w-100">
                             <i class="fa fa-plus"></i> Tambah Kategori
                         </button>
                     </form>
@@ -81,7 +81,7 @@ $kategori_query = mysqli_query($conn, "SELECT * FROM kategori_pengeluaran ORDER 
         <!-- DAFTAR KATEGORI -->
         <div class="col-md-8 mb-3">
             <div class="card">
-                <div class="card-header">
+                <div class="card-header bg-success text-light">
                     <h5><b>Daftar Kategori Pengeluaran</b></h5>
                 </div>
                 <div class="card-body">
@@ -146,7 +146,7 @@ $kategori_query = mysqli_query($conn, "SELECT * FROM kategori_pengeluaran ORDER 
     
     <!-- STATISTIK PENGGUNAAN KATEGORI -->
     <div class="card">
-        <div class="card-header">
+        <div class="card-header bg-danger text-light">
             <h5><b>Statistik Penggunaan Kategori</b></h5>
         </div>
         <div class="card-body">
@@ -210,20 +210,15 @@ $kategori_query = mysqli_query($conn, "SELECT * FROM kategori_pengeluaran ORDER 
         <div class="col-12">
             <div class="card">
                 <div class="card-body">
-                    <div class="row">
+                    <div class="row justify-items-between justify-content-between">
                         <div class="col-md-3 mb-2">
                             <a href="input_pengeluaran.php" class="btn btn-primary w-100">
                                 <i class="fa fa-plus"></i> Input Pengeluaran
                             </a>
                         </div>
                         <div class="col-md-3 mb-2">
-                            <a href="laporan_pengeluaran.php" class="btn btn-info w-100">
-                                <i class="fa fa-chart-line"></i> Laporan Pengeluaran
-                            </a>
-                        </div>
-                        <div class="col-md-3 mb-2">
-                            <a href="analisis_keuangan.php" class="btn btn-success w-100">
-                                <i class="fa fa-analytics"></i> Analisis Keuangan
+                            <a href="laporan_keuangan.php" class="btn btn-info w-100">
+                                <i class="fa fa-chart-line"></i> Laporan
                             </a>
                         </div>
                         <div class="col-md-3 mb-2">

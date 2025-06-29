@@ -6,11 +6,38 @@ function format_ribuan($angka) {
     return number_format($angka, 0, ',', '.');
 }
 
-// Default filter tanggal
-$tanggal_dari = isset($_GET['dari']) ? $_GET['dari'] : date('Y-m-01'); // Awal bulan
-$tanggal_sampai = isset($_GET['sampai']) ? $_GET['sampai'] : date('Y-m-d'); // Hari ini
+// Default filter tanggal untuk TAMPILAN di form dan laporan (DD Month YYYY)
+// Serta konversi untuk KEPERLUAN SQL (YYYY-MM-DD)
+if (isset($_GET['dari']) && isset($_GET['sampai'])) {
+    // Jika tanggal dipilih dari form, ambil nilainya
+    $tanggal_dari_display = $_GET['dari'];
+    $tanggal_sampai_display = $_GET['sampai'];
 
-// Query Data Pemasukan (dari tabel laporanku)
+    // Konversi tanggal dari format input date (YYYY-MM-DD) ke format DD Month YYYY untuk tampilan
+    $tanggal_dari_formatted_display = date('d F Y', strtotime($tanggal_dari_display));
+    $tanggal_sampai_formatted_display = date('d F Y', strtotime($tanggal_sampai_display));
+
+    // Untuk SQL, kita butuh format YYYY-MM-DD agar STR_TO_DATE di MySQL bisa membandingkan
+    $tanggal_dari_sql = $tanggal_dari_display;
+    $tanggal_sampai_sql = $tanggal_sampai_display;
+
+} else {
+    // Jika tidak ada filter, gunakan tanggal default bulan ini
+    // Untuk tampilan di form (akan berupa YYYY-MM-DD untuk input type="date")
+    $tanggal_dari_display = date('Y-m-01'); // '2025-06-01'
+    $tanggal_sampai_display = date('Y-m-d'); // '2025-06-29'
+
+    // Untuk tampilan di laporan (DD Month YYYY)
+    $tanggal_dari_formatted_display = date('01 F Y'); // '01 June 2025'
+    $tanggal_sampai_formatted_display = date('d F Y'); // '29 June 2025'
+
+    // Untuk SQL, tetap YYYY-MM-DD
+    $tanggal_dari_sql = date('Y-m-01');
+    $tanggal_sampai_sql = date('Y-m-d');
+}
+
+
+// --- Query Data Pemasukan (dari tabel laporanku) ---
 $query_pemasukan_sql = "
     SELECT
         tgl_input,
@@ -22,42 +49,52 @@ $query_pemasukan_sql = "
     FROM
         laporanku
     WHERE
-        tgl_input BETWEEN '$tanggal_dari' AND '$tanggal_sampai'
+        STR_TO_DATE(tgl_input, '%d %M %Y') BETWEEN ? AND ?
     GROUP BY
         no_transaksi, nama_barang, harga_barang, tgl_input
     ORDER BY
-        tgl_input DESC, no_transaksi DESC
+        STR_TO_DATE(tgl_input, '%d %M %Y') DESC, no_transaksi DESC
 ";
-$result_pemasukan = mysqli_query($conn, $query_pemasukan_sql);
 
+// Menggunakan Prepared Statements untuk query pemasukan (PENTING!)
+$stmt_pemasukan = mysqli_prepare($conn, $query_pemasukan_sql);
 $data_pemasukan_grouped = [];
 $total_pemasukan = 0;
 
-if ($result_pemasukan) {
-    while ($row = mysqli_fetch_assoc($result_pemasukan)) {
-        $kode = $row['no_transaksi'];
-        if (!isset($data_pemasukan_grouped[$kode])) {
-            $data_pemasukan_grouped[$kode] = [
-                'tgl_input' => $row['tgl_input'],
-                'items' => [],
-                'total_transaksi' => 0
+if ($stmt_pemasukan) {
+    mysqli_stmt_bind_param($stmt_pemasukan, "ss", $tanggal_dari_sql, $tanggal_sampai_sql);
+    mysqli_stmt_execute($stmt_pemasukan);
+    $result_pemasukan = mysqli_stmt_get_result($stmt_pemasukan);
+
+    if ($result_pemasukan) {
+        while ($row = mysqli_fetch_assoc($result_pemasukan)) {
+            $kode = $row['no_transaksi'];
+            if (!isset($data_pemasukan_grouped[$kode])) {
+                $data_pemasukan_grouped[$kode] = [
+                    'tgl_input' => $row['tgl_input'], // Ambil string aslinya untuk ditampilkan
+                    'items' => [],
+                    'total_transaksi' => 0
+                ];
+            }
+            $data_pemasukan_grouped[$kode]['items'][] = [
+                'nama_barang' => $row['nama_barang'],
+                'quantity' => $row['quantity'],
+                'harga_barang' => $row['harga_barang'],
+                'subtotal' => $row['subtotal']
             ];
+            $data_pemasukan_grouped[$kode]['total_transaksi'] += $row['subtotal'];
+            $total_pemasukan += $row['subtotal'];
         }
-        $data_pemasukan_grouped[$kode]['items'][] = [
-            'nama_barang' => $row['nama_barang'],
-            'quantity' => $row['quantity'],
-            'harga_barang' => $row['harga_barang'],
-            'subtotal' => $row['subtotal']
-        ];
-        $data_pemasukan_grouped[$kode]['total_transaksi'] += $row['subtotal'];
-        $total_pemasukan += $row['subtotal'];
+    } else {
+        error_log("Error fetching pemasukan result: " . mysqli_error($conn));
+        // Opsional: echo "<p>Error mengambil data pemasukan.</p>";
     }
+    mysqli_stmt_close($stmt_pemasukan);
 } else {
-    // Anda bisa menambahkan penanganan error di sini, misal: echo "Error mengambil data pemasukan: " . mysqli_error($conn);
+    error_log("Error preparing pemasukan statement: " . mysqli_error($conn));
+    // Opsional: echo "<p>Error menyiapkan query pemasukan.</p>";
 }
-
-
-// Query Data Pengeluaran (dari tabel pengeluaran)
+// --- Query Data Pengeluaran (dari tabel pengeluaran) ---
 $query_pengeluaran_sql = "
     SELECT
         p.tanggal,
@@ -70,21 +107,34 @@ $query_pengeluaran_sql = "
     JOIN
         kategori_pengeluaran kp ON p.id_kategori = kp.id_kategori
     WHERE
-        p.tanggal BETWEEN '$tanggal_dari' AND '$tanggal_sampai'
+        p.tanggal BETWEEN ? AND ? -- Langsung bandingkan jika p.tanggal sudah DATE type
     ORDER BY
         p.tanggal DESC, p.waktu DESC
 ";
-$result_pengeluaran = mysqli_query($conn, $query_pengeluaran_sql);
-
+// ... (bagian bind_param tetap sama, karena $tanggal_dari_sql dan $tanggal_sampai_sql sudah YYYY-MM-DD)
+// Menggunakan Prepared Statements untuk query pengeluaran (PENTING!)
+$stmt_pengeluaran = mysqli_prepare($conn, $query_pengeluaran_sql);
 $total_pengeluaran = 0;
 $pengeluaran_data = [];
-if ($result_pengeluaran) {
-    while ($row = mysqli_fetch_assoc($result_pengeluaran)) {
-        $pengeluaran_data[] = $row;
-        $total_pengeluaran += $row['jumlah'];
+
+if ($stmt_pengeluaran) {
+    mysqli_stmt_bind_param($stmt_pengeluaran, "ss", $tanggal_dari_sql, $tanggal_sampai_sql);
+    mysqli_stmt_execute($stmt_pengeluaran);
+    $result_pengeluaran = mysqli_stmt_get_result($stmt_pengeluaran);
+
+    if ($result_pengeluaran) {
+        while ($row = mysqli_fetch_assoc($result_pengeluaran)) {
+            $pengeluaran_data[] = $row;
+            $total_pengeluaran += $row['jumlah'];
+        }
+    } else {
+        error_log("Error fetching pengeluaran result: " . mysqli_error($conn));
+        // Opsional: echo "<p>Error mengambil data pengeluaran.</p>";
     }
+    mysqli_stmt_close($stmt_pengeluaran);
 } else {
-    // Anda bisa menambahkan penanganan error di sini, misal: echo "Error mengambil data pengeluaran: " . mysqli_error($conn);
+    error_log("Error preparing pengeluaran statement: " . mysqli_error($conn));
+    // Opsional: echo "<p>Error menyiapkan query pengeluaran.</p>";
 }
 
 // Hitung Saldo Bersih
@@ -94,7 +144,7 @@ $saldo_bersih = $total_pemasukan - $total_pengeluaran;
 
 <div class="col-md-9 mb-2">
     <div class="card mb-3">
-        <div class="card-header bg-primary text-white">
+        <div class="card-header bg-warning text-white">
             <h5><b><i class="fa fa-file-invoice"></i> Laporan Keuangan Gabungan</b></h5>
         </div>
         <div class="card-body">
@@ -102,24 +152,24 @@ $saldo_bersih = $total_pemasukan - $total_pengeluaran;
                 <div class="row">
                     <div class="col-md-4">
                         <label class="form-label">Dari Tanggal</label>
-                        <input type="date" name="dari" class="form-control" value="<?= $tanggal_dari ?>">
+                        <input type="date" name="dari" class="form-control" value="<?= htmlspecialchars($tanggal_dari_display) ?>">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Sampai Tanggal</label>
-                        <input type="date" name="sampai" class="form-control" value="<?= $tanggal_sampai ?>">
+                        <input type="date" name="sampai" class="form-control" value="<?= htmlspecialchars($tanggal_sampai_display) ?>">
                     </div>
                     <div class="col-md-4 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary me-2">
                             <i class="fa fa-search"></i> Filter
                         </button>
-                        <a href="laporan_keuangan_gabungan.php" class="btn btn-secondary">Reset</a>
+                        <a href="laporan_keuangan.php" class="btn btn-secondary">Reset</a>
                     </div>
                 </div>
             </form>
 
             <div class="card mb-4">
                 <div class="card-header bg-info text-white">
-                    <h5><b>Ringkasan Keuangan Periode Ini</b></h5>
+                    <h5><b>Ringkasan Keuangan Periode: <?= htmlspecialchars($tanggal_dari_formatted_display) ?> - <?= htmlspecialchars($tanggal_sampai_formatted_display) ?></b></h5>
                 </div>
                 <div class="card-body">
                     <div class="row text-center">
@@ -177,10 +227,10 @@ $saldo_bersih = $total_pemasukan - $total_pengeluaran;
                                 ?>
                                 <tr>
                                     <td><?= $no_pemasukan++ ?></td>
-                                    <td><?= date('d/m/Y', strtotime($transaksi['tgl_input'])) ?></td>
-                                    <td><?= $kode_transaksi ?></td>
-                                    <td><?= $item['nama_barang'] ?></td>
-                                    <td><?= $item['quantity'] ?></td>
+                                    <td><?= htmlspecialchars($transaksi['tgl_input']) ?></td>
+                                    <td><?= htmlspecialchars($kode_transaksi) ?></td>
+                                    <td><?= htmlspecialchars($item['nama_barang']) ?></td>
+                                    <td><?= htmlspecialchars($item['quantity']) ?></td>
                                     <td>Rp <?= format_ribuan($item['harga_barang']) ?></td>
                                     <td>Rp <?= format_ribuan($item['subtotal']) ?></td>
                                 </tr>
@@ -230,10 +280,10 @@ $saldo_bersih = $total_pemasukan - $total_pengeluaran;
                                 ?>
                                 <tr>
                                     <td><?= $no_pengeluaran++ ?></td>
-                                    <td><?= date('d/m/Y', strtotime($row['tanggal'])) ?></td>
-                                    <td><?= date('H:i', strtotime($row['waktu'])) ?></td>
-                                    <td><?= $row['nama_kategori_display'] ?></td>
-                                    <td><?= $row['deskripsi'] ?></td>
+                                    <td><?= htmlspecialchars($row['tanggal']) ?></td>
+                                    <td><?= htmlspecialchars($row['waktu']) ?></td>
+                                    <td><?= htmlspecialchars($row['nama_kategori_display']) ?></td>
+                                    <td><?= htmlspecialchars($row['deskripsi']) ?></td>
                                     <td>Rp <?= format_ribuan($row['jumlah']) ?></td>
                                 </tr>
                                 <?php
@@ -266,8 +316,6 @@ $saldo_bersih = $total_pemasukan - $total_pengeluaran;
 
 <?php if (!empty($labels)): // This condition depends on your PHP providing $labels for a chart ?>
 <script>
-// If you want a combined chart, you'll need to generate $labels, $data, $colors based on both income and expense
-// For now, this is likely based on sales data as in the original `laporan_chart.php`
 const ctx = document.getElementById('grafikMenu').getContext('2d');
 new Chart(ctx, {
     type: 'bar',
@@ -287,7 +335,7 @@ new Chart(ctx, {
             },
             title: {
                 display: true,
-                text: 'Grafik Menu Terjual' // Consider changing title for combined report
+                text: 'Grafik Menu Terjual'
             }
         }
     }
@@ -296,16 +344,14 @@ new Chart(ctx, {
 <?php endif; ?>
 
 <script>
-// Load jsPDF library (ensure this is done before calling exportPDF)
-// This is already included via CDN links above
-
 function formatRibuanJS(angka) {
     return new Intl.NumberFormat('id-ID').format(angka);
 }
 
 function exportExcel() {
-    const tanggalDari = "<?= date('d/m/Y', strtotime($tanggal_dari)) ?>";
-    const tanggalSampai = "<?= date('d/m/Y', strtotime($tanggal_sampai)) ?>";
+    // Gunakan tanggal_dari_formatted_display untuk tampilan di Excel
+    const tanggalDari = "<?= htmlspecialchars($tanggal_dari_formatted_display) ?>";
+    const tanggalSampai = "<?= htmlspecialchars($tanggal_sampai_formatted_display) ?>";
     const totalPemasukan = "Rp <?= format_ribuan($total_pemasukan) ?>";
     const totalPengeluaran = "Rp <?= format_ribuan($total_pengeluaran) ?>";
     const saldoBersih = "Rp <?= format_ribuan($saldo_bersih) ?>";
@@ -377,8 +423,9 @@ function exportPDF() {
     const doc = new jsPDF('p', 'pt', 'a4'); // 'p' for portrait, 'pt' for points, 'a4' for A4 size
 
     // Add Title and Period
-    const tanggalDari = "<?= date('d/m/Y', strtotime($tanggal_dari)) ?>";
-    const tanggalSampai = "<?= date('d/m/Y', strtotime($tanggal_sampai)) ?>";
+    // Gunakan tanggal_dari_formatted_display untuk tampilan di PDF
+    const tanggalDari = "<?= htmlspecialchars($tanggal_dari_formatted_display) ?>";
+    const tanggalSampai = "<?= htmlspecialchars($tanggal_sampai_formatted_display) ?>";
     doc.setFontSize(16);
     doc.text('Laporan Keuangan Gabungan', doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
     doc.setFontSize(12);
@@ -392,12 +439,12 @@ function exportPDF() {
     ];
     doc.autoTable({
         startY: 70,
-        head: [['Ringkasan Keuangan', '']], // Empty header row for layout, adjust if you want a proper header
+        head: [['Ringkasan Keuangan', '']],
         body: summaryData,
         theme: 'grid',
         styles: { fontSize: 10, cellPadding: 5 },
-        headStyles: { fillColor: [66, 133, 244] }, // Blue header for summary
-        columnStyles: { 1: { halign: 'right' } } // Align total values to the right
+        headStyles: { fillColor: [66, 133, 244] },
+        columnStyles: { 1: { halign: 'right' } }
     });
 
     let finalY = doc.autoTable.previous.finalY;
@@ -410,15 +457,14 @@ function exportPDF() {
         startY: finalY + 45,
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 4 },
-        headStyles: { fillColor: [52, 168, 83] }, // Green header for income table
+        headStyles: { fillColor: [52, 168, 83] },
         didParseCell: function(data) {
-            // Right align numeric columns for Pemasukan table
-            if (data.column.index === 4 || data.column.index === 5 || data.column.index === 6) { // Jumlah, Harga Satuan, Sub-Total
+            if (data.column.index === 4 || data.column.index === 5 || data.column.index === 6) {
                 data.cell.styles.halign = 'right';
             }
         }
     });
-    finalY = doc.autoTable.previous.finalY; // Update finalY after income table
+    finalY = doc.autoTable.previous.finalY;
 
     // Add Pengeluaran Table
     doc.setFontSize(14);
@@ -428,10 +474,9 @@ function exportPDF() {
         startY: finalY + 45,
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 4 },
-        headStyles: { fillColor: [234, 67, 53] }, // Red header for expense table
+        headStyles: { fillColor: [234, 67, 53] },
         didParseCell: function(data) {
-            // Right align numeric column for Pengeluaran table
-            if (data.column.index === 5) { // Jumlah
+            if (data.column.index === 5) {
                 data.cell.styles.halign = 'right';
             }
         }
@@ -449,31 +494,31 @@ function exportPDF() {
         display: none !important;
     }
     .card-header, .card-footer {
-        background-color: #f8f9fa !important; /* Agar background tidak gelap saat print */
+        background-color: #f8f9fa !important;
         color: #212529 !important;
         border-bottom: 1px solid #dee2e6;
     }
     body {
-        -webkit-print-color-adjust: exact !important; /* Untuk memastikan warna latar belakang tercetak */
+        -webkit-print-color-adjust: exact !important;
         color-adjust: exact !important;
     }
     .table thead th {
-        background-color: #e9ecef !important; /* Latar belakang header tabel */
+        background-color: #e9ecef !important;
         -webkit-print-color-adjust: exact !important;
         color-adjust: exact !important;
     }
     .table-striped tbody tr:nth-of-type(odd) {
-        background-color: rgba(0,0,0,.05) !important; /* Latar belakang baris ganjil */
+        background-color: rgba(0,0,0,.05) !important;
         -webkit-print-color-adjust: exact !important;
         color-adjust: exact !important;
     }
     .table-success {
-        background-color: #d1e7dd !important; /* Warna latar total pemasukan */
+        background-color: #d1e7dd !important;
         -webkit-print-color-adjust: exact !important;
         color-adjust: exact !important;
     }
     .table-danger {
-        background-color: #f8d7da !important; /* Warna latar total pengeluaran */
+        background-color: #f8d7da !important;
         -webkit-print-color-adjust: exact !important;
         color-adjust: exact !important;
     }
